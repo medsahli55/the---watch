@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Watch — Daily Agenda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --hull:#11161a;
+    --hull-2:#161d22;
+    --plate:#1c252b;
+    --plate-2:#212b32;
+    --brass:#b8935a;
+    --brass-hi:#dcb877;
+    --brass-dark:#7d5d38;
+    --cream:#ece2cd;
+    --verdigris:#3e6b62;
+    --verdigris-hi:#5b968a;
+    --amber:#d98e3f;
+    --ink:#a9a196;
+    --ink-dim:#726b60;
+    --danger:#a85a44;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(184,147,90,0.06), transparent 45%),
+      radial-gradient(ellipse at 90% 110%, rgba(62,107,98,0.08), transparent 50%),
+      var(--hull);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--brass-dark); color:var(--cream);}
+
+  /* ---------- Lock screen ---------- */
+  #lock{
+    position:fixed; inset:0; z-index:50;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--hull);
+  }
+  #lock.hidden{display:none;}
+  .lock-plate{
+    background:var(--plate);
+    border:1px solid var(--brass-dark);
+    border-radius:10px;
+    padding:36px 32px;
+    width:min(320px, 88vw);
+    text-align:center;
+    box-shadow:0 0 0 1px rgba(184,147,90,0.08), 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .lock-plate h2{
+    font-family:'Fraunces', serif; font-weight:600; letter-spacing:0.04em;
+    color:var(--brass-hi); margin:0 0 6px;
+  }
+  .lock-plate p{font-size:12.5px; color:var(--ink-dim); margin:0 0 20px;}
+  #lock-input{
+    width:100%; padding:12px 14px; font-size:20px; letter-spacing:0.3em;
+    text-align:center; font-family:'IBM Plex Mono', monospace;
+    background:var(--hull-2); border:1px solid var(--brass-dark); border-radius:6px;
+    color:var(--cream); outline:none; margin-bottom:14px;
+  }
+  #lock-input:focus{border-color:var(--brass);}
+  .lock-btn{
+    width:100%; padding:11px; border-radius:6px; border:1px solid var(--brass-dark);
+    background:linear-gradient(180deg, var(--plate-2), var(--plate));
+    color:var(--brass-hi); font-family:'IBM Plex Mono', monospace; font-size:13px;
+    letter-spacing:0.08em; cursor:pointer;
+  }
+  .lock-btn:hover{border-color:var(--brass);}
+  #lock-err{color:var(--danger); font-size:12px; height:16px; margin-top:8px;}
+  #lock-skip{margin-top:14px; font-size:11px; color:var(--ink-dim); cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
+
+  /* ---------- Header / Chronometer ---------- */
+  header{
+    padding:34px 20px 22px;
+    text-align:center;
+    border-bottom:1px solid rgba(184,147,90,0.15);
+  }
+  .brandline{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.35em;
+    color:var(--ink-dim); text-transform:uppercase; margin-bottom:14px;
+  }
+  h1.title{
+    font-family:'Fraunces', serif; font-weight:700; font-optical-sizing:auto;
+    font-size:clamp(28px, 7vw, 46px); letter-spacing:0.02em;
+    color:var(--brass-hi); margin:0 0 20px;
+    text-shadow:0 1px 0 rgba(0,0,0,0.6), 0 0 30px rgba(184,147,90,0.12);
+  }
+  .chrono-wrap{display:flex; align-items:center; justify-content:center; gap:22px; flex-wrap:wrap;}
+  .chrono{
+    width:118px; height:118px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--plate-2), var(--plate) 70%);
+    border:3px solid var(--brass-dark);
+    box-shadow:inset 0 0 14px rgba(0,0,0,0.6), 0 0 0 6px var(--hull-2), 0 0 0 7px var(--brass-dark);
+    position:relative;
+  }
+  .chrono .tick{position:absolute; width:2px; height:8px; background:var(--brass); left:50%; top:4px; transform-origin:1px 55px;}
+  .chrono .hand{position:absolute; left:50%; top:50%; transform-origin:50% 100%; background:var(--cream); border-radius:2px;}
+  .chrono .hand.h{width:3px; height:28px; margin-left:-1.5px; margin-top:-28px; background:var(--brass-hi);}
+  .chrono .hand.m{width:2px; height:40px; margin-left:-1px; margin-top:-40px; background:var(--cream);}
+  .chrono .hand.s{width:1px; height:44px; margin-left:-0.5px; margin-top:-44px; background:var(--amber);}
+  .chrono .pin{position:absolute; width:7px; height:7px; border-radius:50%; background:var(--brass-hi); left:50%; top:50%; margin:-3.5px 0 0 -3.5px;}
+  .date-block{font-family:'IBM Plex Mono', monospace; text-align:left;}
+  .date-block .day{font-size:20px; color:var(--cream); letter-spacing:0.03em;}
+  .date-block .sub{font-size:12px; color:var(--ink-dim); margin-top:4px;}
+
+  main{max-width:960px; margin:0 auto; padding:28px 16px 60px;}
+
+  .grid{display:grid; grid-template-columns:1fr; gap:18px;}
+  @media(min-width:720px){.grid{grid-template-columns:1fr 1fr;}}
+
+  .plaque{
+    background:linear-gradient(180deg, var(--plate-2), var(--plate));
+    border:1px solid var(--brass-dark);
+    border-radius:8px;
+    padding:18px 18px 16px;
+    position:relative;
+    box-shadow:0 8px 20px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .plaque::before, .plaque::after,
+  .plaque .r2::before, .plaque .r2::after{
+    content:''; position:absolute; width:6px; height:6px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--brass-hi), var(--brass-dark));
+    box-shadow:inset 0 0 1px rgba(0,0,0,0.6);
+  }
+  .plaque::before{top:8px; left:8px;}
+  .plaque::after{top:8px; right:8px;}
+  .plaque .r2::before{position:absolute; bottom:8px; left:8px; content:'';}
+  .plaque .r2::after{position:absolute; bottom:8px; right:8px; content:'';}
+
+  .plaque-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .plaque-head h3{
+    font-family:'Fraunces', serif; font-weight:600; font-size:16.5px; margin:0;
+    color:var(--brass-hi); letter-spacing:0.01em;
+  }
+  .plaque-head .eyebrow{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    letter-spacing:0.18em; color:var(--verdigris-hi); text-transform:uppercase; margin-bottom:3px;
+  }
+  .dial-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.06em;
+    background:var(--hull-2); color:var(--ink); border:1px solid var(--brass-dark);
+    border-radius:20px; padding:6px 12px; cursor:pointer; white-space:nowrap;
+  }
+  .dial-btn:hover{border-color:var(--brass); color:var(--cream);}
+  .dial-btn:disabled{opacity:0.5; cursor:wait;}
+
+  .plaque-body{font-size:13.5px; line-height:1.6; color:var(--ink); min-height:30px;}
+  .plaque-body p{margin:0 0 8px;}
+  .plaque-body ul{margin:6px 0; padding-left:18px;}
+  .plaque-body li{margin-bottom:5px;}
+  .empty-note{color:var(--ink-dim); font-style:italic; font-size:12.5px;}
+  .synced{font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--ink-dim); margin-top:10px; letter-spacing:0.03em;}
+
+  /* Tasks */
+  .task-row{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(184,147,90,0.08);}
+  .task-row:last-child{border-bottom:none;}
+  .task-row input[type=checkbox]{accent-color:var(--brass); width:15px; height:15px; flex-shrink:0;}
+  .task-row.done label{text-decoration:line-through; color:var(--ink-dim);}
+  .task-row label{flex:1; font-size:13.5px; cursor:pointer;}
+  .task-row .src{font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--verdigris-hi); border:1px solid var(--verdigris); border-radius:10px; padding:1px 6px; flex-shrink:0;}
+  .task-row .del{background:none; border:none; color:var(--ink-dim); cursor:pointer; font-size:14px; padding:0 4px;}
+  .task-row .del:hover{color:var(--danger);}
+  .task-add{display:flex; gap:8px; margin-top:10px;}
+  .task-add input{
+    flex:1; background:var(--hull-2); border:1px solid var(--brass-dark); border-radius:6px;
+    padding:8px 10px; color:var(--cream); font-size:13px; font-family:'IBM Plex Sans', sans-serif; outline:none;
+  }
+  .task-add input:focus{border-color:var(--brass);}
+  .task-add button{
+    background:var(--verdigris); border:none; border-radius:6px; color:var(--cream);
+    padding:0 14px; cursor:pointer; font-size:16px;
+  }
+
+  .full{grid-column:1/-1;}
+
+  footer{
+    text-align:center; padding:24px 16px 40px; font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; color:var(--ink-dim); letter-spacing:0.08em;
+  }
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <div class="lock-plate">
+    <h2>THE WATCH</h2>
+    <p id="lock-sub">Enter passcode to open the agenda</p>
+    <input id="lock-input" type="password" inputmode="numeric" maxlength="6" autocomplete="off" onkeydown="if(event.key==='Enter')tryUnlock()">
+    <div id="lock-err"></div>
+    <button class="lock-btn" id="lock-btn" onclick="tryUnlock()">UNLOCK</button>
+    <div id="lock-skip" onclick="document.getElementById('lock').classList.add('hidden')">skip for now</div>
+  </div>
+</div>
+
+<header>
+  <div class="brandline">Doha · Engine Room Log</div>
+  <h1 class="title">The Watch</h1>
+  <div class="chrono-wrap">
+    <div class="chrono" id="chrono">
+      <div class="hand h" id="hand-h"></div>
+      <div class="hand m" id="hand-m"></div>
+      <div class="hand s" id="hand-s"></div>
+      <div class="pin"></div>
+    </div>
+    <div class="date-block">
+      <div class="day" id="date-day">—</div>
+      <div class="sub" id="date-sub">loading local time…</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <div class="plaque full">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div>
+          <span class="eyebrow">Inbox</span>
+          <h3>Mail Briefing</h3>
+        </div>
+        <button class="dial-btn" id="btn-mail" onclick="runMail()">READ INBOX</button>
+      </div>
+      <div class="plaque-body" id="body-mail"><p class="empty-note">Tap "Read Inbox" for a summary of what's new and what needs a reply.</p></div>
+      <div class="synced" id="sync-mail"></div>
+      <div class="synced" style="margin-top:4px; opacity:0.8;">Note: live in-app inbox reads can be unreliable right now. If it times out, just ask Claude in chat to read your inbox — that route works instantly.</div>
+    </div>
+
+    <div class="plaque full">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div>
+          <span class="eyebrow">Duty List</span>
+          <h3>Work To Do</h3>
+        </div>
+      </div>
+      <div class="plaque-body" id="body-tasks"></div>
+      <div class="task-add">
+        <input id="task-input" type="text" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTask()">
+        <button onclick="addTask()">+</button>
+      </div>
+    </div>
+
+    <div class="plaque full">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div>
+          <span class="eyebrow">Personal</span>
+          <h3>Google Tasks</h3>
+        </div>
+        <button class="dial-btn" id="btn-gtasks" onclick="loadGoogleTasks()">SYNC</button>
+      </div>
+      <div class="plaque-body" id="body-gtasks"><p class="empty-note">Tap "Sync" to pull your open Google Tasks.</p></div>
+      <div class="synced" id="sync-gtasks"></div>
+    </div>
+
+    <div class="plaque">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div><span class="eyebrow">Engineering</span><h3>Predictive Maintenance</h3></div>
+        <button class="dial-btn" id="btn-pm" onclick="runBriefing('pm')">FETCH</button>
+      </div>
+      <div class="plaque-body" id="body-pm"><p class="empty-note">Latest techniques and vendor moves.</p></div>
+      <div class="synced" id="sync-pm"></div>
+    </div>
+
+    <div class="plaque">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div><span class="eyebrow">Market</span><h3>Electric Vehicles</h3></div>
+        <button class="dial-btn" id="btn-ev" onclick="runBriefing('ev')">FETCH</button>
+      </div>
+      <div class="plaque-body" id="body-ev"><p class="empty-note">Newest models and price points.</p></div>
+      <div class="synced" id="sync-ev"></div>
+    </div>
+
+    <div class="plaque">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div><span class="eyebrow">Home</span><h3>Tunisia News</h3></div>
+        <button class="dial-btn" id="btn-tn" onclick="runBriefing('tn')">FETCH</button>
+      </div>
+      <div class="plaque-body" id="body-tn"><p class="empty-note">What's happening back home.</p></div>
+      <div class="synced" id="sync-tn"></div>
+    </div>
+
+    <div class="plaque">
+      <div class="r2"></div>
+      <div class="plaque-head">
+        <div><span class="eyebrow">Anthropic</span><h3>Claude Updates</h3></div>
+        <button class="dial-btn" id="btn-cl" onclick="runBriefing('cl')">FETCH</button>
+      </div>
+      <div class="plaque-body" id="body-cl"><p class="empty-note">Newest Claude models and modules.</p></div>
+      <div class="synced" id="sync-cl"></div>
+    </div>
+
+  </div>
+</main>
+
+<footer>ALL SYSTEMS NOMINAL — REFRESH ANY DIAL TO RE-SYNC</footer>
+
+<script>
+/* ---------------- Passcode lock ---------------- */
+async function getPasscode(){
+  try{ const r = await window.storage.get('watch-passcode', false); return r ? r.value : null; }
+  catch(e){ return null; }
+}
+let memoryPasscode = null; // fallback if persistent storage is unavailable
+async function getPasscode(){
+  if(memoryPasscode) return memoryPasscode;
+  try{
+    const r = await window.storage.get('watch-passcode', false);
+    return r ? r.value : null;
+  }catch(e){
+    return null;
+  }
+}
+async function tryUnlock(){
+  const errEl = document.getElementById('lock-err');
+  errEl.textContent = '';
+  const saved = await getPasscode();
+  const val = document.getElementById('lock-input').value;
+  if(!val){
+    errEl.textContent = 'Type a passcode first';
+    return;
+  }
+  if(!saved){
+    try{
+      await window.storage.set('watch-passcode', val, false);
+    }catch(e){
+      memoryPasscode = val; // storage unavailable — keep it for this session at least
+    }
+    document.getElementById('lock').classList.add('hidden');
+    return;
+  }
+  if(val === saved){
+    document.getElementById('lock').classList.add('hidden');
+  } else {
+    errEl.textContent = 'Incorrect passcode';
+  }
+}
+(async()=>{
+  const saved = await getPasscode();
+  if(!saved){
+    document.getElementById('lock-sub').textContent = 'First time here — type a passcode to set it';
+    document.getElementById('lock-btn').textContent = 'SET PASSCODE';
+  }
+})();
+
+/* ---------------- Chronometer ---------------- */
+function tick(){
+  const now = new Date();
+  const h = now.getHours()%12, m = now.getMinutes(), s = now.getSeconds();
+  document.getElementById('hand-h').style.transform = `rotate(${h*30 + m*0.5}deg)`;
+  document.getElementById('hand-m').style.transform = `rotate(${m*6}deg)`;
+  document.getElementById('hand-s').style.transform = `rotate(${s*6}deg)`;
+  document.getElementById('date-day').textContent = now.toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('date-sub').textContent = now.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'}) + ' local';
+}
+tick(); setInterval(tick, 1000);
+// ticks around the dial face
+(function drawTicks(){
+  const chrono = document.getElementById('chrono');
+  for(let i=0;i<12;i++){
+    const t = document.createElement('div');
+    t.className='tick';
+    t.style.transform = `rotate(${i*30}deg)`;
+    chrono.appendChild(t);
+  }
+})();
+
+/* ---------------- API helper ---------------- */
+async function callClaude({prompt, useWebSearch, useMcp, maxTokens}){
+  const body = { prompt, useWebSearch: !!useWebSearch, useMcp: !!useMcp, maxTokens: maxTokens || 1000 };
+  const fetchPromise = fetch("/.netlify/functions/ask-claude", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(()=>reject(new Error('Timed out — the inbox search took too long. Try again.')), 85000);
+  });
+  const res = await Promise.race([fetchPromise, timeoutPromise]);
+  const data = await res.json();
+  if(!res.ok){
+    throw new Error((data && data.error && data.error.message) || ('Request failed: ' + res.status));
+  }
+  const texts = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text);
+  const joined = texts.join('\n\n');
+  if(joined) return joined;
+  if(data.stop_reason === 'max_tokens') return '(Response got cut off before finishing — try again, it usually completes on a retry.)';
+  return '(No summary came back — try again.)';
+}
+function nowStamp(){
+  return 'synced ' + new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+function renderText(elId, text){
+  const el = document.getElementById(elId);
+  const paras = text.split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+  el.innerHTML = paras;
+}
+
+/* ---------------- Mail ---------------- */
+async function runMail(){
+  const btn = document.getElementById('btn-mail');
+  btn.disabled = true; btn.textContent='READING…';
+  document.getElementById('body-mail').innerHTML = '<p class="empty-note">Scanning inbox… this can take up to a minute.</p>';
+  try{
+    const text = await callClaude({
+      useMcp:true,
+      maxTokens: 1200,
+      prompt:"Call the Gmail search_threads tool exactly ONE time, for my 10 most recent threads. Do not call get_thread or any other tool afterward — base your entire answer only on the subjects, senders, snippets, and labels already returned by that single search. Give me a short plain-text briefing, no markdown headers: 1) what's new worth knowing, 2) which of those look like they need a reply and why, 3) what looks safe to ignore. Keep it tight."
+    });
+    renderText('body-mail', text);
+    document.getElementById('sync-mail').textContent = nowStamp();
+  }catch(e){
+    document.getElementById('body-mail').innerHTML = '<p class="empty-note">' + (e.message || 'Could not reach the inbox. Try again.') + '</p>';
+  }
+  btn.disabled=false; btn.textContent='READ INBOX';
+}
+
+/* ---------------- Web-search briefings ---------------- */
+const PROMPTS = {
+  pm: "Give me a concise, current briefing on the newest techniques and technologies in predictive maintenance (industrial/marine/rotating equipment context). Cover 3-4 notable recent developments with plain-text short paragraphs, no markdown headers, no numbered lists unless truly sequential.",
+  ev: "Give me a concise, current briefing on the newest electric vehicle models and their price points, covering a global mix of brands. Include approximate prices where available. Plain text, short paragraphs, no markdown headers.",
+  tn: "Give me a concise, current news briefing on what's happening in Tunisia right now — top 3-4 stories, political/economic/social. Plain text, short paragraphs, no markdown headers.",
+  cl: "Give me a concise, current briefing on the newest Claude models, tools, and modules released by Anthropic recently. Plain text, short paragraphs, no markdown headers."
+};
+async function runBriefing(key){
+  const btn = document.getElementById('btn-'+key);
+  const bodyEl = 'body-'+key;
+  btn.disabled = true; btn.textContent='FETCHING…';
+  document.getElementById(bodyEl).innerHTML = '<p class="empty-note">Searching…</p>';
+  try{
+    const text = await callClaude({useWebSearch:true, prompt: PROMPTS[key]});
+    renderText(bodyEl, text);
+    document.getElementById('sync-'+key).textContent = nowStamp();
+  }catch(e){
+    document.getElementById(bodyEl).innerHTML = '<p class="empty-note">Fetch failed. Try again.</p>';
+  }
+  btn.disabled=false; btn.textContent='FETCH';
+}
+
+/* ---------------- Tasks ---------------- */
+let tasks = [];
+async function loadTasks(){
+  try{
+    const r = await window.storage.get('watch-tasks', false);
+    tasks = r ? JSON.parse(r.value) : seedTasks();
+  }catch(e){
+    tasks = seedTasks();
+    await saveTasks();
+  }
+  renderTasks();
+}
+function seedTasks(){
+  return [
+    {id:1, text:"1-1 Monthly Meeting — prep priority list, action plan, project status (Jul 14, 11:00, Office)", done:false, src:"CAL"}
+  ];
+}
+async function saveTasks(){
+  await window.storage.set('watch-tasks', JSON.stringify(tasks), false);
+}
+function renderTasks(){
+  const el = document.getElementById('body-tasks');
+  if(tasks.length===0){ el.innerHTML = '<p class="empty-note">No tasks logged. Add one below.</p>'; return; }
+  el.innerHTML = tasks.map(t => `
+    <div class="task-row ${t.done?'done':''}">
+      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})">
+      <label onclick="toggleTask(${t.id})">${t.text}</label>
+      ${t.src ? `<span class="src">${t.src}</span>` : ''}
+      <button class="del" onclick="delTask(${t.id})">✕</button>
+    </div>
+  `).join('');
+}
+function toggleTask(id){
+  const t = tasks.find(x=>x.id===id);
+  if(t){ t.done = !t.done; saveTasks(); renderTasks(); }
+}
+function delTask(id){
+  tasks = tasks.filter(x=>x.id!==id);
+  saveTasks(); renderTasks();
+}
+function addTask(){
+  const inp = document.getElementById('task-input');
+  const val = inp.value.trim();
+  if(!val) return;
+  tasks.push({id: Date.now(), text: val, done:false, src:null});
+  inp.value='';
+  saveTasks(); renderTasks();
+}
+loadTasks();
+
+/* ---------------- Google Tasks (synced) ---------------- */
+async function loadGoogleTasks(){
+  const btn = document.getElementById('btn-gtasks');
+  const bodyEl = document.getElementById('body-gtasks');
+  btn.disabled = true; btn.textContent='SYNCING…';
+  bodyEl.innerHTML = '<p class="empty-note">Pulling open tasks…</p>';
+  try{
+    const res = await fetch('/.netlify/functions/get-google-tasks');
+    const data = await res.json();
+    if(data.error){
+      bodyEl.innerHTML = '<p class="empty-note">' + data.error + '</p>';
+      btn.disabled=false; btn.textContent='SYNC';
+      return;
+    }
+    const gtasks = data.tasks || [];
+    if(gtasks.length===0){
+      bodyEl.innerHTML = '<p class="empty-note">No open tasks in Google Tasks.</p>';
+    } else {
+      const now = new Date();
+      bodyEl.innerHTML = gtasks.map(t=>{
+        let dueLabel = 'No due date';
+        let overdue = false;
+        if(t.due){
+          const d = new Date(t.due);
+          overdue = d < now;
+          dueLabel = d.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+        }
+        return `
+          <div class="task-row">
+            <label style="cursor:default;">${escapeHtmlG(t.title)}</label>
+            <span class="src">${escapeHtmlG(t.listName)}</span>
+            <span style="font-family:'IBM Plex Mono', monospace; font-size:11px; color:${overdue ? 'var(--danger)' : 'var(--ink-dim)'}; white-space:nowrap;">${dueLabel}</span>
+          </div>
+        `;
+      }).join('');
+    }
+    document.getElementById('sync-gtasks').textContent = nowStamp();
+  }catch(e){
+    bodyEl.innerHTML = '<p class="empty-note">Could not reach Google Tasks. Try again.</p>';
+  }
+  btn.disabled=false; btn.textContent='SYNC';
+}
+function escapeHtmlG(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+loadGoogleTasks();
+setInterval(loadGoogleTasks, 5 * 60 * 1000);
+</script>
+</body>
+</html>
