@@ -3,29 +3,39 @@
 // Server-side proxy to the Anthropic API. Keeps ANTHROPIC_API_KEY out of the
 // browser. Set ANTHROPIC_API_KEY in Netlify: Site settings → Environment variables.
 
-export default async (req) => {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: { message: 'Method not allowed' } }), { status: 405 });
+exports.handler = async function (event, context) {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: { message: 'Method not allowed' } }),
+    };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY is not set on the server.' } }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY is not set on the server.' } }),
+    };
   }
 
   let payload;
   try {
-    payload = await req.json();
+    payload = JSON.parse(event.body);
   } catch {
-    return new Response(JSON.stringify({ error: { message: 'Invalid JSON body' } }), { status: 400 });
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: { message: 'Invalid JSON body' } }),
+    };
   }
 
   const { prompt, useWebSearch, useMcp, maxTokens } = payload;
   if (!prompt || typeof prompt !== 'string') {
-    return new Response(JSON.stringify({ error: { message: 'Missing prompt' } }), { status: 400 });
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: { message: 'Missing prompt' } }),
+    };
   }
 
   const body = {
@@ -37,8 +47,6 @@ export default async (req) => {
     body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
   }
   if (useMcp) {
-    // Requires the Gmail MCP connector's own auth to be valid for this to work;
-    // this endpoint only forwards the request, it doesn't manage that token.
     body.mcp_servers = [{ type: 'url', url: 'https://gmailmcp.googleapis.com/mcp/v1', name: 'gmail-mcp' }];
   }
 
@@ -60,18 +68,16 @@ export default async (req) => {
 
     const data = await anthropicRes.json();
 
-    return new Response(JSON.stringify(data), {
-      status: anthropicRes.status,
+    return {
+      statusCode: anthropicRes.status,
       headers: { 'Content-Type': 'application/json' },
-    });
+      body: JSON.stringify(data),
+    };
   } catch (e) {
-    return new Response(
-      JSON.stringify({ error: { message: 'Upstream request failed: ' + e.message } }),
-      { status: 502, headers: { 'Content-Type': 'application/json' } }
-    );
+    return {
+      statusCode: 502,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: { message: 'Upstream request failed: ' + e.message } }),
+    };
   }
-};
-
-export const config = {
-  path: '/api/ask-claude',
 };
