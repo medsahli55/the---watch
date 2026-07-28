@@ -2,6 +2,10 @@
 //
 // Server-side proxy to the Anthropic API. Keeps ANTHROPIC_API_KEY out of the
 // browser. Set ANTHROPIC_API_KEY in Netlify: Site settings → Environment variables.
+//
+// For Gmail MCP requests, this exchanges GMAIL_REFRESH_TOKEN for a short-lived
+// access token and attaches it to the mcp_servers entry so Anthropic's Gmail
+// connector can authenticate on your behalf.
 
 exports.handler = async function (event, context) {
   if (event.httpMethod !== 'POST') {
@@ -46,8 +50,52 @@ exports.handler = async function (event, context) {
   if (useWebSearch) {
     body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
   }
+
   if (useMcp) {
-    body.mcp_servers = [{ type: 'url', url: 'https://gmailmcp.googleapis.com/mcp/v1', name: 'gmail-mcp' }];
+    const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: { message: 'Gmail OAuth environment variables are not fully set.' } }),
+      };
+    }
+
+    try {
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          refresh_token: GMAIL_REFRESH_TOKEN,
+          grant_type: 'refresh_token',
+        }),
+      });
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) {
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: { message: 'Failed to refresh Gmail access token.', details: tokenData } }),
+        };
+      }
+
+      body.mcp_servers = [{
+        type: 'url',
+        url: 'https://gmailmcp.googleapis.com/mcp/v1',
+        name: 'gmail-mcp',
+        authorization_token: tokenData.access_token,
+      }];
+    } catch (e) {
+      return {
+        statusCode: 502,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: { message: 'Failed to refresh Gmail token: ' + e.message } }),
+      };
+    }
   }
 
   try {
