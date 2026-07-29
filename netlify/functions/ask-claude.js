@@ -1,5 +1,5 @@
 
-Ask claude · JS
+
 // netlify/functions/ask-claude.js
 //
 // Server-side proxy to the Anthropic API. Keeps ANTHROPIC_API_KEY out of the
