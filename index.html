@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -454,8 +455,8 @@ async function loadAyaOfDay(force){
   const todayStr = new Date().toDateString();
   let record = null;
   try{
-    const r = await window.storage.get('aya-of-day', false);
-    record = r ? JSON.parse(r.value) : null;
+    const raw = localStorage.getItem('aya-of-day');
+    record = raw ? JSON.parse(raw) : null;
   }catch(e){ record = null; }
 
   if(!force && record && record.date === todayStr){
@@ -468,6 +469,7 @@ async function loadAyaOfDay(force){
   try{
     const globalNum = Math.floor(Math.random()*6236)+1; // total ayahs in the Quran
     const res = await fetch(`https://api.alquran.cloud/v1/ayah/${globalNum}/editions/quran-uthmani,en.sahih`);
+    if(!res.ok) throw new Error('API error ' + res.status);
     const data = await res.json();
     const arabicEd = data.data[0];
     const enEd = data.data[1];
@@ -479,7 +481,7 @@ async function loadAyaOfDay(force){
       surahNameEn: arabicEd.surah.englishName,
       ayahNumInSurah: arabicEd.numberInSurah
     };
-    await window.storage.set('aya-of-day', JSON.stringify(record), false);
+    try{ localStorage.setItem('aya-of-day', JSON.stringify(record)); }catch(e){}
     renderAya(record);
     document.getElementById('sync-aya').textContent = nowStamp();
   }catch(e){
@@ -504,8 +506,8 @@ async function loadSurahOfDay(force){
   const todayStr = new Date().toDateString();
   let record = null;
   try{
-    const r = await window.storage.get('surah-of-day', false);
-    record = r ? JSON.parse(r.value) : null;
+    const raw = localStorage.getItem('surah-of-day');
+    record = raw ? JSON.parse(raw) : null;
   }catch(e){ record = null; }
 
   if(!force && record && record.date === todayStr){
@@ -518,6 +520,7 @@ async function loadSurahOfDay(force){
   try{
     const num = Math.floor(Math.random()*114)+1;
     const res = await fetch(`https://api.alquran.cloud/v1/surah/${num}/editions/quran-uthmani,en.sahih`);
+    if(!res.ok) throw new Error('API error ' + res.status);
     const data = await res.json();
     const arabicEd = data.data[0];
     const enEd = data.data[1];
@@ -531,7 +534,7 @@ async function loadSurahOfDay(force){
       revelationType: arabicEd.revelationType,
       ayahs
     };
-    await window.storage.set('surah-of-day', JSON.stringify(record), false);
+    try{ localStorage.setItem('surah-of-day', JSON.stringify(record)); }catch(e){}
     renderSurah(record);
     document.getElementById('sync-surah').textContent = nowStamp();
   }catch(e){
